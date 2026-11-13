@@ -1,0 +1,431 @@
+<title>Mots récurrents</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout : une colonne d'outil. En haut le choix du dossier, puis le diagramme (pièce maîtresse), puis le tableau. */
+:root {
+  --bg: #f3f5f8; --surface: #ffffff; --ink: #16233a; --muted: #5b677a; --line: #d5dbe5;
+  --accent: #8a1f52; --ring1: #1d4f7c; --ring2: #55627a; --ok: #1f6b4a; --warn: #8a5a00;
+  --display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --body: "Inter", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111722; --surface: #1a2231; --ink: #e8ecf3; --muted: #9aa6ba; --line: #2f3a4e;
+  --accent: #f08ab8; --ring1: #8fc1ee; --ring2: #a9b4c7; --ok: #6fd0a3; --warn: #e6b450; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #111722; --surface: #1a2231; --ink: #e8ecf3; --muted: #9aa6ba; --line: #2f3a4e;
+  --accent: #f08ab8; --ring1: #8fc1ee; --ring2: #a9b4c7; --ok: #6fd0a3; --warn: #e6b450; color-scheme: dark }
+
+body { background: var(--bg); color: var(--ink); font: 16px/1.5 var(--body); }
+.page { max-width: 980px; margin: 0 auto; padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 22px; }
+h1 { font: 700 30px/1.15 var(--display); margin: 0; text-wrap: balance; }
+h2 { font: 700 19px/1.2 var(--display); margin: 0; }
+p { margin: 0; }
+.lead { color: var(--muted); max-width: 62ch; }
+header { display: flex; flex-direction: column; gap: 8px; }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px;
+  display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.drop { border: 2px dashed var(--line); border-radius: 10px; padding: 26px 16px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.drop.over { border-color: var(--accent); }
+.btn { font: 600 16px var(--body); border-radius: 8px; padding: 12px 20px; cursor: pointer;
+  border: 1px solid var(--ink); background: var(--ink); color: var(--bg); display: inline-block; }
+.btn.second { background: transparent; color: var(--ink); border-color: var(--line); font-weight: 500; font-size: 14px; padding: 9px 14px; }
+.btn:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible,
+label.btn:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
+.btn[disabled] { opacity: .5; cursor: default; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.small { font-size: 14px; color: var(--muted); }
+.private { font-size: 14px; color: var(--ok); font-weight: 500; }
+#status { font-size: 14px; min-height: 21px; }
+#status.warn { color: var(--warn); }
+progress { width: 100%; height: 8px; accent-color: var(--accent); }
+
+details summary { cursor: pointer; font-weight: 600; font-size: 15px; }
+.opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; padding-top: 14px; }
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.field label { font-size: 14px; font-weight: 600; }
+input[type=text], textarea, select { font: 15px var(--body); color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; max-width: 100%; }
+textarea { min-height: 70px; resize: vertical; }
+
+.bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; justify-content: space-between; }
+.bar .field { flex: 1 1 240px; }
+.tag { align-self: flex-start; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--warn); border: 1px solid currentColor; border-radius: 99px; padding: 2px 10px; }
+.figure { overflow-x: auto; }
+.figure svg { display: block; width: 100%; min-width: 620px; height: auto; }
+svg text { font-family: var(--body); }
+.w0 { fill: var(--accent); font-family: var(--display); font-weight: 700; }
+.w1 { fill: var(--ring1); font-weight: 600; }
+.w2 { fill: var(--ring2); }
+.cnt { fill: var(--muted); }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; font-size: 15px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+td.n, th.n { text-align: right; }
+tr.first td { font-weight: 600; color: var(--accent); }
+</style>
+
+<div class="page">
+  <header>
+    <h1>Mots récurrents</h1>
+    <p class="lead">Choisissez le dossier de vos entretiens. La page compte les mots de chaque patient et dessine le diagramme : le mot le plus récurrent au centre, les suivants autour.</p>
+    <p class="private">Vos fichiers sont lus par votre navigateur, sur votre ordinateur. Rien n'est envoyé en ligne.</p>
+  </header>
+
+  <section class="panel" aria-label="Choix des entretiens">
+    <div class="drop" id="drop">
+      <label class="btn" for="pickDir">Choisir le dossier des entretiens</label>
+      <input class="sr" type="file" id="pickDir" webkitdirectory multiple>
+      <span class="small">ou glissez le dossier ici ·
+        <label for="pickFiles" style="text-decoration:underline;cursor:pointer">choisir des fichiers un par un</label></span>
+      <input class="sr" type="file" id="pickFiles" multiple accept=".txt,.docx,.pdf">
+      <span class="small">Formats lus : Word (.docx), texte (.txt), PDF</span>
+    </div>
+    <progress id="prog" value="0" max="1" hidden></progress>
+    <p id="status" role="status"></p>
+
+    <details id="optsBox">
+      <summary>Réglages</summary>
+      <div class="opts">
+        <div class="field">
+          <label for="prefixes">Ignorer les répliques de l'intervieweur</label>
+          <input type="text" id="prefixes" placeholder="Intervieweur :, Q :">
+          <span class="small">Débuts de ligne à écarter, séparés par des virgules.</span>
+        </div>
+        <div class="field">
+          <label for="extraStop">Mots à ne pas compter</label>
+          <textarea id="extraStop" placeholder="patient, alzheimer, chose"></textarea>
+          <span class="small">En plus des mots grammaticaux (le, de, je, euh…), déjà écartés.</span>
+        </div>
+        <div class="field">
+          <label for="mode">Comment reconnaître le patient</label>
+          <select id="mode">
+            <option value="auto">Automatique (sous-dossier, sinon début du nom de fichier)</option>
+            <option value="file">Un fichier = un patient</option>
+          </select>
+          <span class="small">Automatique : « P001_entretien2.docx » appartient au patient « P001 ».</span>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <section class="panel" aria-label="Résultats">
+    <span class="tag" id="demoTag">Exemple fictif</span>
+    <div class="bar">
+      <div class="field">
+        <label for="patient">Afficher</label>
+        <select id="patient"></select>
+      </div>
+      <p class="small" id="summary"></p>
+    </div>
+    <div class="figure" id="figure"></div>
+    <div class="actions">
+      <button class="btn second" id="savePng" hidden>Enregistrer ce diagramme (image)</button>
+      <button class="btn second" id="saveZip" hidden>Enregistrer tous les diagrammes (zip)</button>
+      <button class="btn second" id="saveCsv" hidden>Enregistrer la base complète (Excel / CSV)</button>
+      <button class="btn second" id="copyTable">Copier le tableau</button>
+    </div>
+    <p class="small" id="actionMsg" role="status"></p>
+    <h2 id="tableTitle">Classement</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Rang</th><th>Mot</th><th class="n">Occurrences</th><th class="n">Entretiens</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const L = "[a-zàâäéèêëîïôöùûüçœæ]+";
+const WORD = new RegExp(L + "(?:-" + L + ")*", "g");
+const PART = new RegExp(L, "g");
+const STOP_BASE = `le la les un une des du de au aux et ou où mais donc or ni car que qui quoi dont
+dans sur sous pour par avec sans chez vers entre depuis pendant avant après contre
+comme si quand lorsque puisque parce afin ainsi alors puis ensuite enfin
+je tu il elle on nous vous ils elles me te se lui leur leurs moi toi soi eux
+mon ma mes ton ta tes son sa ses notre nos votre vos
+ce cet cette ces ça cela ceci celui celle ceux celles
+tout tous toute toutes quel quelle quels quelles chaque autre autres même mêmes
+quelque quelques plusieurs aucun aucune rien personne quelqu
+être suis es est sommes êtes sont étais était étions étiez étaient été étant sera serai seront serait soit
+avoir ai as avons avez ont avais avait avions aviez avaient eu aura aurai auront aurait ayant
+faire fais fait faisons faites font faisais faisait faisaient fera
+aller vais vas va allons allez vont allais allait allaient allé allée
+dire dis dit disais disait disent pouvoir peux peut pouvons pouvez peuvent pouvais pouvait
+vouloir veux veut voulons voulez veulent voulais voulait falloir faut fallait
+savoir sais sait savez savent voir vois voit voyez
+ne pas plus moins très trop peu assez bien mal aussi encore déjà toujours jamais
+souvent parfois beaucoup vraiment juste seulement surtout plutôt presque
+ici là oui non aujourd hui hier demain maintenant
+euh heu ben bah hein bon voilà hum mhm ouais ah oh eh`;
+
+// Exemple fictif affiché tant qu'aucun dossier n'est choisi.
+const DEMO = [["mémoire",583,36],["oublier",420,36],["famille",384,36],["enfants",370,36],["jours",364,36],["maison",274,36],
+["souvenirs",271,36],["prénom",248,32],["mari",239,36],["médecin",233,36],["fille",232,35],["peur",225,36],["rendez-vous",224,36],
+["jardin",207,34],["clés",190,36],["travail",186,35],["sommeil",183,33],["médicaments",157,34],["fatigue",151,36],["cuisine",145,35],
+["téléphone",124,33],["inquiète",120,31],["autrefois",102,34],["perdue",102,30],["musique",85,29]];
+
+let docs = [];            // {patient, name, text}
+let stats = null;         // {all: Map, byPatient: Map(patient -> {words: Map, n})}
+let downloads = null;
+
+/* ---------- lecture des fichiers ---------- */
+function loadScript(src) {
+  return new Promise((ok, ko) => { const s = document.createElement("script"); s.src = src; s.onload = ok;
+    s.onerror = () => ko(new Error("chargement impossible")); document.head.appendChild(s); });
+}
+let pdfReady = null;
+function pdfLib() {
+  if (!pdfReady) {
+    const base = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+    pdfReady = loadScript(base + "pdf.worker.min.js").then(() => loadScript(base + "pdf.min.js")).then(() => {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = base + "pdf.worker.min.js"; return window.pdfjsLib; });
+  }
+  return pdfReady;
+}
+async function readText(file) {
+  const ext = file.name.toLowerCase().split(".").pop();
+  const buf = await file.arrayBuffer();
+  if (ext === "txt") {
+    try { return new TextDecoder("utf-8", { fatal: true }).decode(buf); }
+    catch (e) { return new TextDecoder("windows-1252").decode(buf); }
+  }
+  if (ext === "docx") {
+    const zip = await JSZip.loadAsync(buf);
+    const entry = zip.file("word/document.xml");
+    if (!entry) throw new Error("document Word illisible");
+    const xml = new DOMParser().parseFromString(await entry.async("string"), "application/xml");
+    return Array.from(xml.getElementsByTagNameNS("*", "p"), p =>
+      Array.from(p.getElementsByTagNameNS("*", "t"), t => t.textContent).join("")).join("\n");
+  }
+  if (ext === "pdf") {
+    const lib = await pdfLib();
+    const pdf = await lib.getDocument({ data: buf }).promise;
+    let out = "";
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const content = await (await pdf.getPage(i)).getTextContent();
+      out += content.items.map(it => it.str + (it.hasEOL ? "\n" : " ")).join("") + "\n";
+    }
+    return out;
+  }
+  throw new Error("format non lu");
+}
+function patientOf(path, viaFolder) {
+  const parts = path.split("/").filter(Boolean);
+  if (viaFolder && parts.length > 1) parts.shift();          // retire le dossier racine
+  const stem = parts[parts.length - 1].replace(/\.[^.]+$/, "");
+  return { folder: parts.length > 1 ? parts[0] : null, prefix: stem.split("_")[0], stem };
+}
+async function ingest(entries) {            // entries: [{file, path, viaFolder}]
+  const known = entries.filter(e => /\.(txt|docx|pdf)$/i.test(e.file.name) && !e.file.name.startsWith("~$"));
+  const skipped = entries.length - known.length;
+  if (!known.length) { setStatus("Aucun fichier Word, texte ou PDF trouvé dans cette sélection.", true); return; }
+  docs = []; const failed = [], empty = [];
+  $("prog").hidden = false; $("prog").max = known.length;
+  for (let i = 0; i < known.length; i++) {
+    const e = known[i];
+    $("prog").value = i; setStatus(`Lecture ${i + 1} / ${known.length} : ${e.file.name}`);
+    try {
+      const text = (await readText(e.file)).normalize("NFC");
+      if (!text.trim()) empty.push(e.file.name);
+      docs.push({ id: patientOf(e.path, e.viaFolder), name: e.path, text });
+    } catch (err) { failed.push(e.file.name); }
+  }
+  $("prog").hidden = true;
+  recount();
+  const notes = [];
+  if (failed.length) notes.push(`${failed.length} fichier(s) illisible(s) : ${failed.slice(0, 3).join(", ")}${failed.length > 3 ? "…" : ""}`);
+  if (empty.length) notes.push(`${empty.length} sans texte (PDF scanné ?) : ${empty.slice(0, 3).join(", ")}${empty.length > 3 ? "…" : ""}`);
+  if (skipped) notes.push(`${skipped} fichier(s) d'un autre format ignoré(s)`);
+  setStatus(`${docs.length} entretiens lus.` + (notes.length ? " " + notes.join(" · ") + "." : ""), notes.length > 0);
+}
+function setStatus(msg, warn) { $("status").textContent = msg; $("status").className = warn ? "warn" : ""; }
+
+/* ---------- comptage ---------- */
+function countWords(text, stop, prefixes) {
+  if (prefixes.length) text = text.split("\n").filter(l => { const t = l.trim().toLowerCase();
+    return !prefixes.some(p => t.startsWith(p)); }).join("\n");
+  const out = new Map();
+  for (const w of text.toLowerCase().match(WORD) || [])
+    if (w.split("-").some(p => p.length > 2 && !stop.has(p))) out.set(w, (out.get(w) || 0) + 1);
+  return out;
+}
+function recount() {
+  if (!docs.length) return;
+  const stop = new Set((STOP_BASE + " " + $("extraStop").value.toLowerCase()).match(PART) || []);
+  const prefixes = $("prefixes").value.split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+  const perFile = $("mode").value === "file";
+  const add = (bucket, counts) => { bucket.n++;
+    for (const [w, n] of counts) { const c = bucket.words.get(w) || [0, 0]; c[0] += n; c[1]++; bucket.words.set(w, c); } };
+  stats = { all: { words: new Map(), n: 0 }, byPatient: new Map() };
+  for (const d of docs) {
+    const patient = perFile ? d.id.stem : (d.id.folder || d.id.prefix);
+    const counts = countWords(d.text, stop, prefixes);
+    add(stats.all, counts);
+    if (!stats.byPatient.has(patient)) stats.byPatient.set(patient, { words: new Map(), n: 0 });
+    add(stats.byPatient.get(patient), counts);
+  }
+  const sel = $("patient"), keep = sel.value;
+  sel.textContent = "";
+  sel.add(new Option(`Tous les patients (${stats.byPatient.size})`, ""));
+  for (const p of [...stats.byPatient.keys()].sort((a, b) => a.localeCompare(b, "fr", { numeric: true }))) sel.add(new Option(p, p));
+  if (keep && stats.byPatient.has(keep)) sel.value = keep;
+  $("demoTag").hidden = true;
+  for (const b of ["savePng", "saveZip", "saveCsv"]) $(b).hidden = !downloads;
+  render();
+}
+function topWords(bucket, limit) {
+  return [...bucket.words].map(([w, c]) => [w, c[0], c[1]])
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "fr")).slice(0, limit);
+}
+function current() {
+  if (!stats) return { words: DEMO, title: "Tous les patients", sub: "36 entretiens fictifs · 12 patients" };
+  const p = $("patient").value, b = p ? stats.byPatient.get(p) : stats.all;
+  return { words: topWords(b, 25), title: p ? "Patient " + p : "Tous les patients",
+    sub: `${b.n} entretien${b.n > 1 ? "s" : ""}` + (p ? "" : ` · ${stats.byPatient.size} patients`) };
+}
+
+/* ---------- diagramme : une seule mise en page, rendue en SVG (écran) et en canvas (image) ---------- */
+const W = 1200, H = 800, CX = 600, CY = 400;
+function layout(words) {
+  if (!words.length) return [];
+  const max = words[0][1], items = [];
+  const c = words[0][0], cs = Math.max(30, Math.min(84, 340 / (0.6 * c.length)));
+  items.push({ t: c, x: CX, y: CY, s: cs, k: 0 }, { t: max + " occurrences", x: CX, y: CY + cs * 0.62 + 12, s: 17, k: 0, cnt: 1 });
+  const rings = [[words.slice(1, 9), 300, 200, 19, 38, 170, 1], [words.slice(9, 25), 480, 325, 14, 22, 165, 2]];
+  for (const [ring, rx, ry, smin, smax, wmax, k] of rings) ring.forEach(([w, n], i) => {
+    const a = Math.PI / 2 - 2 * Math.PI * i / ring.length, d = i % 2 ? 16 : -16;
+    const s = Math.min(smin + (smax - smin) * Math.sqrt(n / max), wmax / (0.58 * w.length));
+    const x = CX + (rx + d) * Math.cos(a), y = CY - (ry + d) * Math.sin(a);
+    items.push({ t: w, x, y, s, k }, { t: String(n), x, y: y + s * 0.62 + 9, s: 12, k, cnt: 1 });
+  });
+  return items;
+}
+function drawSvg(words) {
+  const NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", words.length ? `Mot le plus récurrent : ${words[0][0]}, ${words[0][1]} occurrences` : "Aucun mot");
+  for (const it of layout(words)) {
+    const t = document.createElementNS(NS, "text");
+    t.setAttribute("x", it.x.toFixed(1)); t.setAttribute("y", it.y.toFixed(1));
+    t.setAttribute("text-anchor", "middle"); t.setAttribute("dominant-baseline", "central");
+    t.setAttribute("font-size", it.s.toFixed(1)); t.setAttribute("class", it.cnt ? "cnt" : "w" + it.k);
+    t.textContent = it.t; svg.appendChild(t);
+  }
+  return svg;
+}
+function drawCanvas(words, title, sub) {
+  const pad = 110, sc = 1.5, cv = document.createElement("canvas");
+  cv.width = W * sc; cv.height = (H + pad) * sc;
+  const g = cv.getContext("2d"); g.scale(sc, sc);
+  g.fillStyle = "#ffffff"; g.fillRect(0, 0, W, H + pad);
+  g.textAlign = "center"; g.textBaseline = "middle";
+  const sans = '"Inter", "Segoe UI", Arial, sans-serif', disp = '"Space Grotesk", "Segoe UI", Arial, sans-serif';
+  g.fillStyle = "#16233a"; g.font = `700 34px ${disp}`; g.fillText(title, CX, 48);
+  g.fillStyle = "#5b677a"; g.font = `400 18px ${sans}`; g.fillText(sub, CX, 86);
+  const col = ["#8a1f52", "#1d4f7c", "#55627a"];
+  for (const it of layout(words)) {
+    g.fillStyle = it.cnt ? (it.k === 0 ? col[0] : "#7b8698") : col[it.k];
+    g.font = `${it.cnt ? 400 : it.k === 0 ? 700 : it.k === 1 ? 600 : 400} ${it.s}px ${it.k === 0 && !it.cnt ? disp : sans}`;
+    g.fillText(it.t, it.x, it.y + pad);
+  }
+  return new Promise(ok => cv.toBlob(ok, "image/png"));
+}
+function render() {
+  const cur = current();
+  $("summary").textContent = cur.sub;
+  $("figure").replaceChildren(drawSvg(cur.words));
+  $("tableTitle").textContent = "Classement · " + cur.title;
+  $("rows").replaceChildren(...cur.words.map(([w, n, d], i) => {
+    const tr = document.createElement("tr"); if (i === 0) tr.className = "first";
+    [i + 1, w, n, d].forEach((v, j) => { const td = document.createElement("td"); td.textContent = v; if (j > 1) td.className = "n"; tr.appendChild(td); });
+    return tr;
+  }));
+  if (!cur.words.length) $("figure").textContent = "Aucun mot à afficher pour cette sélection.";
+}
+
+/* ---------- enregistrement ---------- */
+const safe = s => s.replace(/[^\p{L}\p{N}._-]+/gu, "_").replace(/^_+|_+$/g, "") || "patient";
+function note(msg) { $("actionMsg").textContent = msg; }
+async function save(filename, data) {
+  try { await downloads.save({ filename, data }); note("Enregistré : " + filename); }
+  catch (e) { note(e && e.code === "declined" ? "Enregistrement annulé." : "Enregistrement impossible ici (" + ((e && e.code) || "erreur") + ")."); }
+}
+$("savePng").onclick = async () => { const c = current(); save(safe(c.title) + ".png", await drawCanvas(c.words, c.title, c.sub)); };
+$("saveZip").onclick = async () => {
+  const zip = new JSZip(), btn = $("saveZip"); btn.disabled = true;
+  const sub = b => `${b.n} entretien${b.n > 1 ? "s" : ""}`;
+  zip.file("_tous_les_patients.png", await drawCanvas(topWords(stats.all, 25), "Tous les patients", `${sub(stats.all)} · ${stats.byPatient.size} patients`));
+  let i = 0;
+  for (const [p, b] of stats.byPatient) {
+    note(`Préparation des diagrammes : ${++i} / ${stats.byPatient.size}`);
+    zip.file(safe(p) + ".png", await drawCanvas(topWords(b, 25), "Patient " + p, sub(b)));
+  }
+  const blob = await zip.generateAsync({ type: "blob" }); btn.disabled = false;
+  save("diagrammes.zip", blob);
+};
+function csv() {
+  const q = v => /[";\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : v;
+  const lines = ["patient;rang;mot;occurrences;nb_entretiens"];
+  const dump = (label, b) => topWords(b, Infinity).forEach(([w, n, d], i) => lines.push([q(label), i + 1, q(w), n, d].join(";")));
+  dump("TOUS", stats.all);
+  for (const p of [...stats.byPatient.keys()].sort((a, b) => a.localeCompare(b, "fr", { numeric: true }))) dump(p, stats.byPatient.get(p));
+  return "﻿" + lines.join("\r\n");
+}
+$("saveCsv").onclick = () => save("mots_par_patient.csv", csv());
+$("copyTable").onclick = async () => {
+  const text = "Rang\tMot\tOccurrences\tEntretiens\n" + current().words.map((r, i) => [i + 1, ...r].join("\t")).join("\n");
+  try { await navigator.clipboard.writeText(text); note("Tableau copié : collez-le dans Excel ou Word."); }
+  catch (e) { note("Copie impossible ici : sélectionnez le tableau à la souris puis copiez."); }
+};
+
+/* ---------- choix du dossier ---------- */
+$("pickDir").onchange = e => ingest(Array.from(e.target.files, f => ({ file: f, path: f.webkitRelativePath || f.name, viaFolder: !!f.webkitRelativePath })));
+$("pickFiles").onchange = e => ingest(Array.from(e.target.files, f => ({ file: f, path: f.name, viaFolder: false })));
+async function walk(entry, out) {
+  if (entry.isFile) { const file = await new Promise((ok, ko) => entry.file(ok, ko)); out.push({ file, path: entry.fullPath.replace(/^\//, ""), viaFolder: true }); }
+  else if (entry.isDirectory) {
+    const reader = entry.createReader();
+    for (;;) { const batch = await new Promise((ok, ko) => reader.readEntries(ok, ko)); if (!batch.length) break;
+      for (const child of batch) await walk(child, out); }
+  }
+}
+const drop = $("drop");
+["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", async e => {
+  const roots = Array.from(e.dataTransfer.items || [], it => it.webkitGetAsEntry && it.webkitGetAsEntry()).filter(Boolean);
+  const out = [];
+  try { for (const r of roots) await walk(r, out); } catch (err) {}
+  if (!out.length) for (const f of e.dataTransfer.files) out.push({ file: f, path: f.name, viaFolder: false });
+  // un seul dossier déposé : on retire son nom ; plusieurs éléments : les chemins sont déjà relatifs
+  const single = roots.length === 1 && roots[0].isDirectory;
+  ingest(out.map(o => ({ ...o, viaFolder: single })));
+});
+
+/* ---------- réglages ---------- */
+const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+                set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+for (const id of ["prefixes", "extraStop", "mode"]) {
+  const v = store.get("mr_" + id); if (v !== null) $(id).value = v;
+  $(id).addEventListener("change", () => { store.set("mr_" + id, $(id).value); recount(); });
+}
+$("patient").addEventListener("change", render);
+$("patient").add(new Option("Tous les patients (exemple)", ""));
+render();
+(async () => {
+  try { downloads = window.claude && window.claude.use ? await window.claude.use("downloads") : null; } catch (e) { downloads = null; }
+  if (downloads && stats) for (const b of ["savePng", "saveZip", "saveCsv"]) $(b).hidden = false;
+})();
+</script>
