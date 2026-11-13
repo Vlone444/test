@@ -53,7 +53,8 @@ input[type=text], textarea, select { font: 15px var(--body); color: var(--ink); 
 textarea { min-height: 70px; resize: vertical; }
 
 .bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; justify-content: space-between; }
-.bar .field { flex: 1 1 240px; }
+.bar .field { flex: 1 1 180px; }
+.bar h2 { flex: 2 1 240px; align-self: center; }
 .tag { align-self: flex-start; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
   color: var(--warn); border: 1px solid currentColor; border-radius: 99px; padding: 2px 10px; }
 .figure { overflow-x: auto; }
@@ -70,6 +71,12 @@ th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--lin
 th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
 td.n, th.n { text-align: right; }
 tr.first td { font-weight: 600; color: var(--accent); }
+.kw { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; font-size: 14px; }
+.cmp { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
+.cmp h3 { font: 700 16px var(--display); margin: 0 0 2px; }
+.cmp ol { margin: 10px 0 0; padding: 0; list-style: none; font-variant-numeric: tabular-nums; }
+.cmp li { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; border-bottom: 1px solid var(--line); }
+.cmp li.only { color: var(--accent); font-weight: 600; }
 </style>
 
 <div class="page">
@@ -90,6 +97,7 @@ tr.first td { font-weight: 600; color: var(--accent); }
     </div>
     <progress id="prog" value="0" max="1" hidden></progress>
     <p id="status" role="status"></p>
+    <p class="small" id="detect" hidden></p>
 
     <details id="optsBox">
       <summary>Réglages</summary>
@@ -112,6 +120,16 @@ tr.first td { font-weight: 600; color: var(--accent); }
           </select>
           <span class="small">Automatique : « P001_entretien2.docx » appartient au patient « P001 ».</span>
         </div>
+        <div class="field">
+          <label>Reconnaître le type d'entretien dans le nom du fichier ou du dossier</label>
+          <div class="kw">
+            <label for="kwJardin">Jardin</label><input type="text" id="kwJardin" value="jardin">
+            <label for="kwBureau">Bureau</label><input type="text" id="kwBureau" value="bureau, mnesique, neuropsy">
+            <label for="kwV1">1re visite</label><input type="text" id="kwV1" value="t1, v1, s1, j1, visite1, visite 1, session1, session 1">
+            <label for="kwV2">2e visite</label><input type="text" id="kwV2" value="t2, v2, s2, j2, visite2, visite 2, session2, session 2">
+          </div>
+          <span class="small">Mots ou codes séparés par des virgules. Exemple : « P001_jardin_T1.docx ».</span>
+        </div>
       </div>
     </details>
   </section>
@@ -122,6 +140,14 @@ tr.first td { font-weight: 600; color: var(--accent); }
       <div class="field">
         <label for="patient">Afficher</label>
         <select id="patient"></select>
+      </div>
+      <div class="field">
+        <label for="lieu">Entretien</label>
+        <select id="lieu"><option value="">Jardin et bureau</option><option value="jardin">Jardin</option><option value="bureau">Bureau</option></select>
+      </div>
+      <div class="field">
+        <label for="visite">Visite</label>
+        <select id="visite"><option value="">Les deux visites</option><option value="1">1re visite</option><option value="2">2e visite</option></select>
       </div>
       <p class="small" id="summary"></p>
     </div>
@@ -140,6 +166,18 @@ tr.first td { font-weight: 600; color: var(--accent); }
         <tbody id="rows"></tbody>
       </table>
     </div>
+  </section>
+
+  <section class="panel" id="cmpPanel" aria-label="Comparaison" hidden>
+    <div class="bar">
+      <h2 id="cmpTitle">Comparer</h2>
+      <div class="field">
+        <label for="cmpBy">Comparer</label>
+        <select id="cmpBy"><option value="lieu">Jardin et bureau</option><option value="visite">1re et 2e visite</option></select>
+      </div>
+    </div>
+    <div class="cmp" id="cmp"></div>
+    <p class="small" id="cmpNote"></p>
   </section>
 </div>
 
@@ -177,7 +215,7 @@ const DEMO = [["mémoire",583,36],["oublier",420,36],["famille",384,36],["enfant
 ["téléphone",124,33],["inquiète",120,31],["autrefois",102,34],["perdue",102,30],["musique",85,29]];
 
 let docs = [];            // {patient, name, text}
-let stats = null;         // {all: Map, byPatient: Map(patient -> {words: Map, n})}
+let stats = null;         // {patients: [...]} une fois les entretiens comptés
 let downloads = null;
 
 /* ---------- lecture des fichiers ---------- */
@@ -261,39 +299,82 @@ function countWords(text, stop, prefixes) {
     if (w.split("-").some(p => p.length > 2 && !stop.has(p))) out.set(w, (out.get(w) || 0) + 1);
   return out;
 }
+const norm = t => t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+function matcher(list) {      // mots-clés entiers : « t1 » ne correspond pas à « patient1 » ni à « t10 »
+  const res = list.split(",").map(k => norm(k.trim())).filter(Boolean).map(k => new RegExp(
+    "(?<![a-z" + (/^\d/.test(k) ? "0-9" : "") + "])" + k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?![a-z" + (/\d$/.test(k) ? "0-9" : "") + "])"));
+  return p => res.some(r => r.test(p));
+}
+const LABEL = { jardin: "Jardin", bureau: "Bureau", 1: "1re visite", 2: "2e visite" };
 function recount() {
   if (!docs.length) return;
   const stop = new Set((STOP_BASE + " " + $("extraStop").value.toLowerCase()).match(PART) || []);
   const prefixes = $("prefixes").value.split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
   const perFile = $("mode").value === "file";
-  const add = (bucket, counts) => { bucket.n++;
-    for (const [w, n] of counts) { const c = bucket.words.get(w) || [0, 0]; c[0] += n; c[1]++; bucket.words.set(w, c); } };
-  stats = { all: { words: new Map(), n: 0 }, byPatient: new Map() };
+  const isJ = matcher($("kwJardin").value), isB = matcher($("kwBureau").value), is1 = matcher($("kwV1").value), is2 = matcher($("kwV2").value);
+  const seen = new Set();
   for (const d of docs) {
-    const patient = perFile ? d.id.stem : (d.id.folder || d.id.prefix);
-    const counts = countWords(d.text, stop, prefixes);
-    add(stats.all, counts);
-    if (!stats.byPatient.has(patient)) stats.byPatient.set(patient, { words: new Map(), n: 0 });
-    add(stats.byPatient.get(patient), counts);
+    const p = norm(d.name.replace(/\.[^./]+$/, "")), j = isJ(p), b = isB(p), v1 = is1(p), v2 = is2(p);
+    d.patient = perFile ? d.id.stem : (d.id.folder || d.id.prefix);
+    d.lieu = j === b ? "" : j ? "jardin" : "bureau";
+    d.visite = v1 === v2 ? "" : v1 ? "1" : "2";
+    d.counts = countWords(d.text, stop, prefixes);
+    seen.add(d.patient);
   }
+  stats = { patients: [...seen].sort((a, b) => a.localeCompare(b, "fr", { numeric: true })) };
   const sel = $("patient"), keep = sel.value;
   sel.textContent = "";
-  sel.add(new Option(`Tous les patients (${stats.byPatient.size})`, ""));
-  for (const p of [...stats.byPatient.keys()].sort((a, b) => a.localeCompare(b, "fr", { numeric: true }))) sel.add(new Option(p, p));
-  if (keep && stats.byPatient.has(keep)) sel.value = keep;
-  $("demoTag").hidden = true;
+  sel.add(new Option(`Tous les patients (${stats.patients.length})`, ""));
+  for (const p of stats.patients) sel.add(new Option(p, p));
+  if (keep && seen.has(keep)) sel.value = keep;
+  $("demoTag").hidden = true; $("cmpPanel").hidden = false;
   for (const b of ["savePng", "saveZip", "saveCsv"]) $(b).hidden = !downloads;
+  const nb = (k, v) => docs.filter(d => d[k] === v).length, unk = docs.filter(d => !d.lieu || !d.visite);
+  $("detect").hidden = false;
+  $("detect").textContent = `Types reconnus d'après les noms : ${nb("lieu", "jardin")} jardin, ${nb("lieu", "bureau")} bureau, ${nb("lieu", "")} non reconnus · `
+    + `${nb("visite", "1")} en 1re visite, ${nb("visite", "2")} en 2e visite, ${nb("visite", "")} non reconnus.`
+    + (unk.length ? ` Exemples non reconnus : ${unk.slice(0, 3).map(d => d.name).join(" ; ")}. Indiquez dans Réglages les mots ou codes présents dans vos noms de fichiers.` : "");
   render();
+}
+function agg(list) {
+  const bucket = { words: new Map(), n: list.length };
+  for (const d of list) for (const [w, n] of d.counts) { const c = bucket.words.get(w) || [0, 0]; c[0] += n; c[1]++; bucket.words.set(w, c); }
+  return bucket;
 }
 function topWords(bucket, limit) {
   return [...bucket.words].map(([w, c]) => [w, c[0], c[1]])
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "fr")).slice(0, limit);
 }
+function pick(f) {          // f : {patient, lieu, visite}, valeur vide = pas de filtre
+  return docs.filter(d => (!f.patient || d.patient === f.patient) && (!f.lieu || d.lieu === f.lieu) && (!f.visite || d.visite === f.visite));
+}
+const filters = () => ({ patient: $("patient").value, lieu: $("lieu").value, visite: $("visite").value });
+const cond = f => [LABEL[f.lieu], LABEL[f.visite]].filter(Boolean).join(", ");
+const plural = n => `${n} entretien${n > 1 ? "s" : ""}`;
 function current() {
   if (!stats) return { words: DEMO, title: "Tous les patients", sub: "36 entretiens fictifs · 12 patients" };
-  const p = $("patient").value, b = p ? stats.byPatient.get(p) : stats.all;
-  return { words: topWords(b, 25), title: p ? "Patient " + p : "Tous les patients",
-    sub: `${b.n} entretien${b.n > 1 ? "s" : ""}` + (p ? "" : ` · ${stats.byPatient.size} patients`) };
+  const f = filters(), list = pick(f), b = agg(list), c = cond(f);
+  return { words: topWords(b, 25), title: (f.patient ? "Patient " + f.patient : "Tous les patients") + (c ? " · " + c : ""),
+    sub: plural(b.n) + (f.patient ? "" : ` · ${new Set(list.map(d => d.patient)).size} patients`) };
+}
+function renderCompare() {
+  if (!stats) return;
+  const f = filters(), by = $("cmpBy").value, values = by === "lieu" ? ["jardin", "bureau"] : ["1", "2"];
+  const other = by === "lieu" ? LABEL[f.visite] : LABEL[f.lieu];
+  $("cmpTitle").textContent = "Comparer · " + (f.patient ? "Patient " + f.patient : "Tous les patients") + (other ? " · " + other : "");
+  const cols = values.map(v => { const b = agg(pick({ ...f, [by]: v })); return { v, b, top: topWords(b, 15) }; });
+  const sets = cols.map(c => new Set(c.top.map(r => r[0])));
+  $("cmp").replaceChildren(...cols.map((c, i) => {
+    const div = document.createElement("div"), h = document.createElement("h3"), p = document.createElement("p"), ol = document.createElement("ol");
+    h.textContent = LABEL[c.v]; p.className = "small";
+    let total = 0; for (const x of c.b.words.values()) total += x[0];
+    p.textContent = c.b.n ? `${plural(c.b.n)} · ${total} mots comptés · ${c.b.words.size} mots différents` : "Aucun entretien reconnu pour cette colonne.";
+    for (const [w, n] of c.top) { const li = document.createElement("li"), a = document.createElement("span"), b = document.createElement("span");
+      a.textContent = w; b.textContent = n; if (!sets[1 - i].has(w)) li.className = "only"; li.append(a, b); ol.appendChild(li); }
+    div.append(h, p, ol); return div;
+  }));
+  const common = [...sets[0]].filter(w => sets[1].has(w)).length, size = Math.min(sets[0].size, sets[1].size);
+  $("cmpNote").textContent = size ? `${common} mots en commun sur les ${size} premiers. En couleur : les mots absents des premiers de l'autre colonne.` : "";
 }
 
 /* ---------- diagramme : une seule mise en page, rendue en SVG (écran) et en canvas (image) ---------- */
@@ -352,7 +433,8 @@ function render() {
     [i + 1, w, n, d].forEach((v, j) => { const td = document.createElement("td"); td.textContent = v; if (j > 1) td.className = "n"; tr.appendChild(td); });
     return tr;
   }));
-  if (!cur.words.length) $("figure").textContent = "Aucun mot à afficher pour cette sélection.";
+  if (!cur.words.length) $("figure").textContent = "Aucun entretien ne correspond à cette sélection.";
+  renderCompare();
 }
 
 /* ---------- enregistrement ---------- */
@@ -364,26 +446,27 @@ async function save(filename, data) {
 }
 $("savePng").onclick = async () => { const c = current(); save(safe(c.title) + ".png", await drawCanvas(c.words, c.title, c.sub)); };
 $("saveZip").onclick = async () => {
-  const zip = new JSZip(), btn = $("saveZip"); btn.disabled = true;
-  const sub = b => `${b.n} entretien${b.n > 1 ? "s" : ""}`;
-  zip.file("_tous_les_patients.png", await drawCanvas(topWords(stats.all, 25), "Tous les patients", `${sub(stats.all)} · ${stats.byPatient.size} patients`));
+  const zip = new JSZip(), btn = $("saveZip"), f = { ...filters(), patient: "" }, c = cond(f), tail = c ? " · " + c : "";
+  btn.disabled = true;
+  const all = agg(pick(f));
+  zip.file("_tous_les_patients.png", await drawCanvas(topWords(all, 25), "Tous les patients" + tail, `${plural(all.n)} · ${stats.patients.length} patients`));
   let i = 0;
-  for (const [p, b] of stats.byPatient) {
-    note(`Préparation des diagrammes : ${++i} / ${stats.byPatient.size}`);
-    zip.file(safe(p) + ".png", await drawCanvas(topWords(b, 25), "Patient " + p, sub(b)));
+  for (const p of stats.patients) {
+    note(`Préparation des diagrammes : ${++i} / ${stats.patients.length}`);
+    const b = agg(pick({ ...f, patient: p }));
+    if (b.n) zip.file(safe(p) + ".png", await drawCanvas(topWords(b, 25), "Patient " + p + tail, plural(b.n)));
   }
   const blob = await zip.generateAsync({ type: "blob" }); btn.disabled = false;
-  save("diagrammes.zip", blob);
+  save(safe("diagrammes" + (c ? "_" + c : "")) + ".zip", blob);
 };
-function csv() {
+function csv() {      // une ligne par patient, type d'entretien, visite et mot : la base complète
   const q = v => /[";\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : v;
-  const lines = ["patient;rang;mot;occurrences;nb_entretiens"];
-  const dump = (label, b) => topWords(b, Infinity).forEach(([w, n, d], i) => lines.push([q(label), i + 1, q(w), n, d].join(";")));
-  dump("TOUS", stats.all);
-  for (const p of [...stats.byPatient.keys()].sort((a, b) => a.localeCompare(b, "fr", { numeric: true }))) dump(p, stats.byPatient.get(p));
+  const lines = ["patient;entretien;visite;fichier;mot;occurrences"];
+  for (const d of docs) for (const [w, n] of [...d.counts].sort((a, b) => b[1] - a[1]))
+    lines.push([q(d.patient), d.lieu || "?", d.visite || "?", q(d.name), q(w), n].join(";"));
   return "﻿" + lines.join("\r\n");
 }
-$("saveCsv").onclick = () => save("mots_par_patient.csv", csv());
+$("saveCsv").onclick = () => save("base_mots_par_entretien.csv", csv());
 $("copyTable").onclick = async () => {
   const text = "Rang\tMot\tOccurrences\tEntretiens\n" + current().words.map((r, i) => [i + 1, ...r].join("\t")).join("\n");
   try { await navigator.clipboard.writeText(text); note("Tableau copié : collez-le dans Excel ou Word."); }
@@ -417,11 +500,12 @@ drop.addEventListener("drop", async e => {
 /* ---------- réglages ---------- */
 const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
                 set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
-for (const id of ["prefixes", "extraStop", "mode"]) {
+for (const id of ["prefixes", "extraStop", "mode", "kwJardin", "kwBureau", "kwV1", "kwV2"]) {
   const v = store.get("mr_" + id); if (v !== null) $(id).value = v;
   $(id).addEventListener("change", () => { store.set("mr_" + id, $(id).value); recount(); });
 }
-$("patient").addEventListener("change", render);
+for (const id of ["patient", "lieu", "visite"]) $(id).addEventListener("change", render);
+$("cmpBy").addEventListener("change", renderCompare);
 $("patient").add(new Option("Tous les patients (exemple)", ""));
 render();
 (async () => {
