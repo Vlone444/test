@@ -1,0 +1,35 @@
+# Mots ignorés lors du comptage (un ou plusieurs par ligne).
+# Ajoutez ici les mots sans intérêt qui remontent dans vos diagrammes, puis relancez.
+# Les lignes commençant par # sont des commentaires.
+
+# articles, prépositions, conjonctions
+le la les un une des du de au aux et ou où mais donc or ni car que qui quoi dont
+dans sur sous pour par avec sans chez vers entre depuis pendant avant après contre
+comme si quand lorsque puisque parce afin ainsi alors puis ensuite enfin
+
+# pronoms et déterminants
+je tu il elle on nous vous ils elles me te se lui leur leurs moi toi soi eux
+mon ma mes ton ta tes son sa ses notre nos votre vos
+ce cet cette ces ça cela ceci celui celle ceux celles
+tout tous toute toutes quel quelle quels quelles chaque autre autres même mêmes
+quelque quelques plusieurs aucun aucune rien personne quelqu
+
+# être, avoir, faire, aller et verbes très courants
+être suis es est sommes êtes sont étais était étions étiez étaient été étant sera serai seront serait soit
+avoir ai as avons avez ont avais avait avions aviez avaient eu aura aurai auront aurait ayant
+faire fais fait faisons faites font faisais faisait faisaient fera
+aller vais vas va allons allez vont allais allait allaient allé allée
+dire dis dit disais disait disent
+pouvoir peux peut pouvons pouvez peuvent pouvais pouvait
+vouloir veux veut voulons voulez veulent voulais voulait
+falloir faut fallait
+savoir sais sait savez savent
+voir vois voit voyez
+
+# adverbes et mots de liaison
+ne pas plus moins très trop peu assez bien mal aussi encore déjà toujours jamais
+souvent parfois beaucoup vraiment juste seulement surtout plutôt presque
+ici là oui non peut-être aujourd hui hier demain maintenant
+
+# tics de l'oral
+euh heu ben bah hein bon voilà quoi enfin donc hum mhm ouais ah oh eh

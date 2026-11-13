@@ -1,0 +1,4 @@
+# Données de patients : ne jamais les versionner
+entretiens/
+resultats/
+*.db
